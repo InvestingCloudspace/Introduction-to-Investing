@@ -1,0 +1,423 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High-Conviction Stock Analysis Framework</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Gilded Analyst -->
+    <!-- Application Structure Plan: The SPA is designed as a multi-tabbed dashboard (Overview, Financial Deep Dive, Market Context, Internal Factors, Getting Started) rather than a linear document. This structure breaks the dense report into thematic, digestible sections, allowing users to explore the complex methodology in a non-linear, task-oriented way. This is superior to a simple scrollable page because it improves navigation, reduces cognitive load, and enables users to focus on specific areas of the analysis framework (e.g., financials, risk) independently, which enhances usability and comprehension. The addition of a ticker search bar enhances user control, allowing dynamic content loading based on user-selected companies, and the new 'Getting Started' tab centralizes user guidance within the single page. -->
+    <!-- Visualization & Content Choices:
+        - Report Info: Key Financial Ratios (Table 1) -> Goal: Analyze long-term trends -> Viz/Presentation: Interactive Bar & Line Charts -> Interaction: Timeframe filter buttons (5/10/20-Year) -> Justification: Dynamically showcases consistency and performance patterns over decades, which is more engaging than a static table. -> Library/Method: Chart.js/Canvas.
+        - Report Info: Company vs. Industry Comparison (Table 2) -> Goal: Compare performance against peers -> Viz/Presentation: Grouped Bar Chart -> Interaction: Hover tooltips for precise data -> Justification: Provides an immediate visual comparison of the company's competitive standing (e.g., superior margins). -> Library/Method: Chart.js/Canvas.
+        - Report Info: Performance During Crises (Table 3) -> Goal: Demonstrate resilience -> Viz/Presentation: Timeline with styled HTML cards for each crisis -> Interaction: N/A, static visual display -> Justification: Creates a powerful narrative of the company's ability to weather economic storms, more impactful than a simple table. -> Library/Method: HTML/CSS/Tailwind.
+        - Report Info: Qualitative Concepts (e.g., Competitive Moat, Leadership DNA) -> Goal: Explain complex ideas -> Viz/Presentation: Icon-driven info cards -> Interaction: Clickable details to reveal more text -> Justification: Breaks down heavy text into scannable, visually appealing components, making abstract concepts easier to grasp. -> Library/Method: HTML/CSS/JS.
+        - New Feature: Stock Ticker Search -> Goal: Allow user-driven data exploration -> Viz/Presentation: Input field and button -> Interaction: On-click data refresh for all charts and textual context -> Justification: Enables users to actively research different companies within the framework, enhancing engagement and personalization. -> Library/Method: HTML/JS.
+        - New Feature: Getting Started/FAQ Section -> Goal: Provide user guidance and answer common questions -> Viz/Presentation: Text blocks with list formatting -> Interaction: Tab navigation to dedicated section; info-links within main content -> Justification: Improves user-friendliness by centralizing instructions and common queries within the single-page app, avoiding external links. -> Library/Method: HTML/CSS/JS.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FDFBF7;
+            color: #1A365D;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 40vh;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        .nav-link {
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+            outline: none; /* Removed default outline for cleaner focus styling */
+        }
+        .nav-link.active, .nav-link:focus, .nav-link:hover {
+            border-bottom-color: #D4AF37;
+            color: #D4AF37;
+        }
+        .filter-btn {
+            transition: all 0.3s ease;
+        }
+        .filter-btn.active {
+            background-color: #1A365D;
+            color: #FDFBF7;
+        }
+        .content-section {
+            display: none;
+        }
+        .content-section.active {
+            display: block;
+        }
+        .info-link {
+            color: #2563eb; /* Blue for links */
+            cursor: pointer;
+            text-decoration: underline dotted; /* Dotted underline for informational links */
+            position: relative; /* Needed for tooltip positioning */
+            display: inline-block; /* Allows width/height for hover area */
+        }
+        .tooltip {
+            display: none;
+            position: absolute;
+            bottom: 100%; /* Position above the link */
+            left: 50%;
+            transform: translateX(-50%); /* Center the tooltip */
+            background: #fffbe6; /* Light yellow background for notice */
+            color: #333;
+            border: 1px solid #e2e8f0; /* Light border */
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 0.95em;
+            white-space: normal; /* Allow text to wrap */
+            z-index: 100; /* Ensure it's above other content */
+            max-width: 250px; /* Limit tooltip width */
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Subtle shadow */
+            margin-bottom: 5px; /* Space between link and tooltip */
+        }
+        .info-link:focus + .tooltip,
+        .info-link:hover + .tooltip {
+            display: block;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="min-h-screen">
+        <header class="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-10" role="banner">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                <h1 class="text-3xl font-bold text-center text-[#1A365D]">High-Conviction Stock Analysis Framework</h1>
+                <p class="text-center text-gray-500 mt-1">An Interactive Guide to 30-Year Investment Analysis</p>
+            </div>
+            <nav class="bg-white border-b border-gray-200" aria-label="Main Navigation">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex justify-center h-12">
+                        <div class="flex space-x-8">
+                            <a href="#" id="nav-overview" class="nav-link inline-flex items-center px-1 pt-1 text-sm font-medium" tabindex="0" aria-current="page">Overview</a>
+                            <a href="#" id="nav-financial" class="nav-link inline-flex items-center px-1 pt-1 text-sm font-medium" tabindex="0">Financial Deep Dive</a>
+                            <a href="#" id="nav-market" class="nav-link inline-flex items-center px-1 pt-1 text-sm font-medium" tabindex="0">Market Context</a>
+                            <a href="#" id="nav-internal" class="nav-link inline-flex items-center px-1 pt-1 text-sm font-medium" tabindex="0">Internal Factors</a>
+                            <a href="#" id="nav-getting-started" class="nav-link inline-flex items-center px-1 pt-1 text-sm font-medium" tabindex="0">Getting Started</a>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" id="maincontent">
+            <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200 mb-8 flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-4" aria-label="Stock Ticker Search">
+                <input type="text" id="tickerInput" placeholder="Enter stock ticker (e.g., AAPL, MSFT, GE)" aria-label="Enter stock ticker" class="w-full md:w-auto flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D4AF37]">
+                <button id="searchButton" class="bg-[#1A365D] text-white px-6 py-2 rounded-md font-semibold hover:bg-opacity-90 transition-colors duration-200" aria-label="Search Ticker">Search Ticker</button>
+                <span id="currentTickerDisplay" class="text-gray-700 font-medium md:ml-4">Currently Analyzing: Default Co.</span>
+            </div>
+           
+            <section id="overview" class="content-section" aria-labelledby="overview-title">
+                <div class="text-center mb-8">
+                    <h2 id="overview-title" class="text-2xl font-bold text-[#1A365D]">Synthesizing Decades of Data for a High-Conviction Thesis</h2>
+                    <p class="mt-2 max-w-3xl mx-auto text-gray-600">
+                        This framework integrates historical financial performance, market positioning, and internal strengths to identify companies that act as "compounding machines."
+                        <a href="#getting-started" class="info-link" tabindex="0" aria-haspopup="true">Learn more about this app</a>
+                        <span class="tooltip" role="tooltip">Click to navigate to the "Getting Started" section for details on how to use this interactive framework.</span>
+                    </p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 text-center">
+                    <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                        <h3 class="font-semibold text-lg">📈 Consistent Profitability</h3>
+                        <p class="text-sm text-gray-500 mt-1">Strong profit and cash flow generation through all economic cycles.</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                        <h3 class="font-semibold text-lg">🛡️ Market Resilience</h3>
+                        <p class="text-sm text-gray-500 mt-1">Maintenance or growth of market share despite competitive pressure.</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                        <h3 class="font-semibold text-lg">💡 Strategic Adaptability</h3>
+                        <p class="text-sm text-gray-500 mt-1">Proven track record of adapting to technological and regulatory shifts.</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                        <h3 class="font-semibold text-lg">💰 Disciplined Capital Allocation</h3>
+                        <p class="text-sm text-gray-500 mt-1">A history of value-creating investments and shareholder returns.</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                        <h3 class="font-semibold text-lg">⚖️ Strong Governance</h3>
+                        <p class="text-sm text-gray-500 mt-1">Proactive risk management and a culture of long-term thinking.</p>
+                    </div>
+                </div>
+                <div class="mt-8 bg-white p-6 rounded-lg shadow-lg border border-gray-200">
+                    <h3 class="text-xl font-bold text-center mb-4">Illustrative Long-Term Performance</h3>
+                    <p class="text-center text-gray-600 mb-4">
+                        This chart visualizes the steady, fundamentally-driven growth of a hypothetical high-conviction stock, contrasting it with the volatility of the broader market.
+                        <span class="info-link" tabindex="0" aria-describedby="why-compare-tooltip">Why compare?</span>
+                        <span class="tooltip" id="why-compare-tooltip" role="tooltip">
+                            Comparing a company to its industry or market helps you see if its outperformance is due to management skill or just overall market trends. This is valuable for identifying true long-term winners.
+                        </span>
+                        Notice the consistent appreciation supported by healthy volume, indicating strong investor confidence over decades.
+                    </p>
+                    <div class="chart-container">
+                        <canvas id="longTermPerformanceChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section id="financial" class="content-section" aria-labelledby="financial-title">
+                <div class="text-center mb-8">
+                    <h2 id="financial-title" class="text-2xl font-bold text-[#1A365D]">Foundational Analysis: Decades of Financial Performance</h2>
+                    <p class="mt-2 max-w-3xl mx-auto text-gray-600">A deep dive into 20-30 years of financial statements reveals the quality of a company's growth and its operational excellence. Use the filters below to explore consistent patterns in profitability, efficiency, and financial health over different time horizons.</p>
+                </div>
+                <div class="flex justify-center mb-6">
+                    <div class="flex space-x-2 bg-gray-200 p-1 rounded-lg" role="group" aria-label="Financial data period filters">
+                        <button class="filter-btn px-4 py-2 text-sm font-medium rounded-md" data-period="5" aria-pressed="false">5-Year</button>
+                        <button class="filter-btn px-4 py-2 text-sm font-medium rounded-md" data-period="10" aria-pressed="false">10-Year</button>
+                        <button class="filter-btn px-4 py-2 text-sm font-medium rounded-md" data-period="20" aria-pressed="true">20-Year</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200">
+                        <h3 class="text-xl font-bold text-center mb-1">Growth Rates (CAGR)</h3>
+                        <p id="growthChartContext" class="text-center text-sm text-gray-600 mb-4">Analyzing Compound Annual Growth Rates (CAGR) demonstrates the company's ability to consistently expand its top and bottom lines.</p>
+                        <div class="chart-container h-[300px] max-h-[300px] md:h-[300px]">
+                            <canvas id="growthChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200">
+                        <h3 class="text-xl font-bold text-center mb-1">Profitability & Efficiency</h3>
+                        <p id="profitabilityChartContext" class="text-center text-sm text-gray-600 mb-4">Consistent or improving margins and high returns on capital signal strong management and durable pricing power.</p>
+                        <div class="chart-container h-[300px] max-h-[300px] md:h-[300px]">
+                            <canvas id="profitabilityChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="market" class="content-section" aria-labelledby="market-title">
+                 <div class="text-center mb-8">
+                    <h2 id="market-title" class="text-2xl font-bold text-[#1A365D]">External Environment: Industry, Macroeconomics, & Regulation</h2>
+                    <p class="mt-2 max-w-3xl mx-auto text-gray-600">A company's success is shaped by its environment. This section explores the company's competitive positioning within its industry and its proven resilience during major economic crises over the past three decades.</p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200 mb-8">
+                    <h3 class="text-xl font-bold text-center mb-1">Company vs. Industry Performance (20-Year Average)</h3>
+                    <p class="text-center text-sm text-gray-600 mb-4">Consistently outperforming the industry average in growth and profitability is a key indicator of a sustainable competitive moat.</p>
+                    <div class="chart-container">
+                        <canvas id="industryComparisonChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200">
+                    <h3 class="text-xl font-bold text-center mb-4">Resilience Through Economic Crises</h3>
+                    <p class="text-center text-sm text-gray-600 mb-6">The ultimate test of a business model is its performance during severe downturns. A high-conviction stock not only survives but often strengthens its position during crises.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="border border-gray-200 p-4 rounded-lg bg-gray-50">
+                            <h4 class="font-bold text-lg text-center"><span id="crisis1Title">Dot-Com Bust (2000-02)</span></h4>
+                            <p class="text-sm text-gray-600 text-center mt-2" id="crisis1Description">While tech faltered, this company's stable earnings demonstrated the value of a non-speculative, fundamentally sound business model.</p>
+                            <div class="mt-3 text-center">
+                                <span id="crisis1StockPerf" class="text-green-600 font-semibold">Stock: +5%</span> | <span id="crisis1SnpPerf" class="text-red-600">S&P 500: -38%</span>
+                            </div>
+                        </div>
+                        <div class="border border-gray-200 p-4 rounded-lg bg-gray-50">
+                            <h4 class="font-bold text-lg text-center"><span id="crisis2Title">Financial Crisis (2008-09)</span></h4>
+                            <p class="text-sm text-gray-600 text-center mt-2" id="crisis2Description">Strong balance sheet and consistent cash flow allowed it to navigate the credit crunch and recover faster than the broader market.</p>
+                            <div class="mt-3 text-center">
+                                <span id="crisis2StockPerf" class="text-red-600 font-semibold">Stock: -25%</span> | <span id="crisis2SnpPerf" class="text-red-600">S&P 500: -50%</span>
+                            </div>
+                        </div>
+                        <div class="border border-gray-200 p-4 rounded-lg bg-gray-50">
+                            <h4 class="font-bold text-lg text-center"><span id="crisis3Title">COVID-19 Pandemic (2020)</span></h4>
+                            <p class="text-sm text-gray-600 text-center mt-2" id="crisis3Description">An adaptive supply chain and essential nature of its products led to minimal disruption and a swift V-shaped recovery.</p>
+                            <div class="mt-3 text-center">
+                                <span id="crisis3StockPerf" class="text-green-600 font-semibold">Stock: +15%</span> | <span id="crisis3SnpPerf" class="text-green-600">S&P 500: +16%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="internal" class="content-section" aria-labelledby="internal-title">
+                <div class="text-center mb-8">
+                    <h2 id="internal-title" class="text-2xl font-bold text-[#1A365D]">Internal Factors: Management & Risk Profile</h2>
+                    <p class="mt-2 max-w-3xl mx-auto text-gray-600">The quality of a company's leadership and its approach to risk are critical determinants of long-term success. A 20-30 year review reveals the "leadership DNA" and the robustness of its governance.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200">
+                        <h3 class="text-xl font-bold mb-4 text-center">Management & Strategic Acumen</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <h4 class="font-semibold">👥 Leadership DNA & Adaptive Capacity</h4>
+                                <p class="text-sm text-gray-600 mt-1" id="leadershipDNA">Analysis over decades shows a consistent pattern of sound decision-making across different leadership tenures, indicating a strong organizational culture of long-term value creation that transcends any single CEO.</p>
+                            </div>
+                             <div>
+                                <h4 class="font-semibold">🎯 Foresight & Execution</h4>
+                                <p class="text-sm text-gray-600 mt-1" id="foresightExecution">Management has consistently demonstrated the ability to anticipate market shifts, make disciplined capital allocation decisions, and execute on strategic initiatives that translate into tangible shareholder value.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200">
+                        <h3 class="text-xl font-bold mb-4 text-center">Risk Factors & Mitigation</h3>
+                         <div class="space-y-4">
+                            <div>
+                                <h4 class="font-semibold">⚠️ Proactive Risk Management</h4>
+                                <p class="text-sm text-gray-600 mt-1" id="proactiveRisk">A review of historical 10-K filings reveals a pattern of identifying emerging risks early and developing proactive mitigation strategies, rather than reacting after problems materialize. This indicates robust corporate governance.</p>
+                            </div>
+                             <div>
+                                <h4 class="font-semibold"> agile Regulatory Navigation</h4>
+                                <p class="text-sm text-gray-600 mt-1" id="regulatoryNavigation">The company has consistently demonstrated "regulatory agility"—the ability to adapt to, and sometimes even benefit from, changes in the policy landscape, turning potential headwinds into a competitive advantage.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="getting-started" class="content-section" aria-labelledby="getting-started-title">
+                <div class="text-center mb-8">
+                    <h2 id="getting-started-title" class="text-2xl font-bold text-[#1A365D]">Getting Started & FAQ</h2>
+                    <p class="mt-2 max-w-3xl mx-auto text-gray-600">
+                        Welcome! Here's a quick guide to using this interactive stock analysis framework.
+                    </p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200">
+                    <h3 class="text-xl font-bold mb-4">How to Use This App</h3>
+                    <ul class="list-disc list-inside space-y-2 text-gray-700">
+                        <li><strong>Search for Tickers:</strong> Use the input field at the top of the page to enter a stock ticker symbol (e.g., AAPL, MSFT, GE) and click "Search Ticker" to load its illustrative data.</li>
+                        <li><strong>Navigate Sections:</strong> Use the navigation links (Overview, Financial Deep Dive, etc.) at the top to explore different aspects of the stock analysis framework.</li>
+                        <li><strong>Filter Financial Data:</strong> In the "Financial Deep Dive" section, use the "5-Year", "10-Year", and "20-Year" buttons to view historical averages for different time periods.</li>
+                        <li><strong>Understand the Framework:</strong> Each section provides charts and textual explanations derived from the comprehensive 20-30 year historical deep dive methodology.</li>
+                    </ul>
+                    <h3 class="text-xl font-bold mt-8 mb-4">Frequently Asked Questions</h3>
+                    <div class="space-y-4 text-gray-700">
+                        <div>
+                            <h4 class="font-semibold">Q: Where does the data come from?</h4>
+                            <p class="text-sm text-gray-600 mt-1">A: The data presented in this application is illustrative and hypothetical, designed to demonstrate the analytical framework. It does not represent real-time or historical financial data from actual companies for investment decisions.</p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold">Q: Can I analyze any stock?</h4>
+                            <p class="text-sm text-gray-600 mt-1">A: Currently, the app supports a few predefined ticker symbols (AAPL, MSFT, GE) with pre-loaded mock data to showcase the functionality. For other tickers, a default dataset is displayed.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+           
+            <footer class="mt-12 text-center text-gray-400 text-sm" role="contentinfo">
+                <p>&copy; 2025 Investing for Everyone. <a href="#getting-started" class="underline">Getting Started / FAQ</a>. All rights reserved.</p>
+            </footer>
+        </main>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const navLinks = document.querySelectorAll('.nav-link');
+    const contentSections = document.querySelectorAll('.content-section');
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    const tickerInput = document.getElementById('tickerInput');
+    const searchButton = document.getElementById('searchButton');
+    const currentTickerDisplay = document.getElementById('currentTickerDisplay');
+
+    let currentTicker = 'DEFAULT'; // Initial default ticker
+
+    const allStockData = {
+        'DEFAULT': {
+            name: 'Default Co.',
+            longTerm: {
+                years: Array.from({ length: 21 }, (_, i) => 2004 + i),
+                companyPrice: [10, 12, 15, 18, 14, 20, 25, 30, 35, 40, 50, 60, 70, 85, 100, 120, 110, 140, 160, 180, 200],
+                marketPrice: [10, 11, 13, 16, 10, 15, 18, 22, 28, 35, 45, 50, 55, 65, 75, 90, 85, 110, 120, 130, 150],
+                volume: [100, 110, 120, 130, 150, 140, 160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 230, 260, 270, 280, 300],
+            },
+            financials: {
+                '20': { growth: { Revenue: 8, NetIncome: 10, EPS: 11, FCF: 9 }, profitability: { GrossMargin: 55, OperatingMargin: 25, NetMargin: 18, ROE: 20 } },
+                '10': { growth: { Revenue: 9, NetIncome: 12, EPS: 13, FCF: 11 }, profitability: { GrossMargin: 58, OperatingMargin: 28, NetMargin: 20, ROE: 22 } },
+                '5': { growth: { Revenue: 10, NetIncome: 14, EPS: 15, FCF: 13 }, profitability: { GrossMargin: 60, OperatingMargin: 30, NetMargin: 22, ROE: 24 } }
+            },
+            industry: {
+                company: { Revenue: 8, NetIncome: 10, GrossMargin: 55, NetMargin: 18 },
+                industry: { Revenue: 5, NetIncome: 6, GrossMargin: 40, NetMargin: 10 }
+            },
+            crises: [
+                { title: 'Dot-Com Bust (2000-02)', description: 'While tech faltered, this company\'s stable earnings demonstrated the value of a non-speculative, fundamentally sound business model.', stockPerf: '+5%', snpPerf: '-38%', stockColor: 'text-green-600', snpColor: 'text-red-600' },
+                { title: 'Financial Crisis (2008-09)', description: 'Strong balance sheet and consistent cash flow allowed it to navigate the credit crunch and recover faster than the broader market.', stockPerf: '-25%', snpPerf: '-50%', stockColor: 'text-red-600', snpColor: 'text-red-600' },
+                { title: 'COVID-19 Pandemic (2020)', description: 'An adaptive supply chain and essential nature of its products led to minimal disruption and a swift V-shaped recovery.', stockPerf: '+15%', snpPerf: '+16%', stockColor: 'text-green-600', snpColor: 'text-green-600' }
+            ],
+            internalFactors: {
+                leadershipDNA: 'Analysis over decades shows a consistent pattern of sound decision-making across different leadership tenures, indicating a strong organizational culture of long-term value creation that transcends any single CEO.',
+                foresightExecution: 'Management has consistently demonstrated the ability to anticipate market shifts, make disciplined capital allocation decisions, and execute on strategic initiatives that translate into tangible shareholder value.',
+                proactiveRisk: 'A review of historical 10-K filings reveals a pattern of identifying emerging risks early and developing proactive mitigation strategies, rather than reacting after problems materialize. This indicates robust corporate governance.',
+                regulatoryNavigation: 'The company has consistently demonstrated "regulatory agility"—the ability to adapt to, and sometimes even benefit from, changes in the policy landscape, turning potential headwinds into a competitive advantage.'
+            }
+        },
+        'AAPL': {
+            name: 'Apple Inc.',
+            longTerm: {
+                years: Array.from({ length: 21 }, (_, i) => 2004 + i),
+                companyPrice: [1, 2, 3, 5, 4, 8, 12, 15, 20, 25, 35, 45, 55, 70, 85, 100, 110, 130, 150, 170, 190], // Adjusted for AAPL splits
+                marketPrice: [10, 11, 13, 16, 10, 15, 18, 22, 28, 35, 45, 50, 55, 65, 75, 90, 85, 110, 120, 130, 150],
+                volume: [300, 320, 350, 380, 400, 390, 420, 450, 480, 500, 550, 600, 650, 700, 750, 800, 780, 850, 900, 950, 1000],
+            },
+            financials: {
+                '20': { growth: { Revenue: 15, NetIncome: 20, EPS: 22, FCF: 18 }, profitability: { GrossMargin: 40, OperatingMargin: 25, NetMargin: 20, ROE: 35 } },
+                '10': { growth: { Revenue: 12, NetIncome: 18, EPS: 20, FCF: 15 }, profitability: { GrossMargin: 42, OperatingMargin: 28, NetMargin: 22, ROE: 40 } },
+                '5': { growth: { Revenue: 10, NetIncome: 15, EPS: 17, FCF: 13 }, profitability: { GrossMargin: 43, OperatingMargin: 30, NetMargin: 23, ROE: 45 } }
+            },
+            industry: {
+                company: { Revenue: 15, NetIncome: 20, GrossMargin: 42, NetMargin: 22 },
+                industry: { Revenue: 10, NetIncome: 12, GrossMargin: 35, NetMargin: 10 }
+            },
+            crises: [
+                { title: 'Dot-Com Bust (2000-02)', description: 'While AAPL faced challenges, strategic shifts post-bust laid groundwork for future innovation.', stockPerf: '-15%', snpPerf: '-38%', stockColor: 'text-red-600', snpColor: 'text-red-600' },
+                { title: 'Financial Crisis (2008-09)', description: 'Strong product pipeline and ecosystem resilience allowed swift recovery despite broad market turmoil.', stockPerf: '-35%', snpPerf: '-50%', stockColor: 'text-red-600', snpColor: 'text-red-600' },
+                { title: 'COVID-19 Pandemic (2020)', description: 'Digital services and consumer demand for technology fueled growth, showing strong adaptability.', stockPerf: '+30%', snpPerf: '+16%', stockColor: 'text-green-600', snpColor: 'text-green-600' }
+            ],
+            internalFactors: {
+                leadershipDNA: 'A history of visionary leadership combined with a strong culture of relentless innovation and customer focus has driven decades of growth and market dominance.',
+                foresightExecution: 'Proactive investments in R&D and strategic diversification into services have consistently positioned Apple ahead of market trends, delivering exceptional shareholder value.',
+                proactiveRisk: 'Robust supply chain management and proactive legal teams have effectively mitigated global operational and intellectual property risks over the long term.',
+                regulatoryNavigation: 'Apple has shown resilience in navigating complex global regulatory landscapes, adapting business practices while continuing to expand its market reach and product offerings.'
+            }
+        },
+        'MSFT': {
+            name: 'Microsoft Corp.',
+            longTerm: {
+                years: Array.from({ length: 21 }, (_, i) => 2004 + i),
+                companyPrice: [15, 18, 20, 22, 18, 25, 30, 35, 40, 45, 55, 65, 75, 90, 110, 130, 120, 150, 170, 190, 220],
+                marketPrice: [10, 11, 13, 16, 10, 15, 18, 22, 28, 35, 45, 50, 55, 65, 75, 90, 85, 110, 120, 130, 150],
+                volume: [250, 260, 270, 280, 290, 280, 300, 310, 320, 330, 340, 350, 360, 370, 380, 390, 370, 400, 410, 420, 430],
+            },
+            financials: {
+                '20': { growth: { Revenue: 10, NetIncome: 12, EPS: 13, FCF: 11 }, profitability: { GrossMargin: 65, OperatingMargin: 30, NetMargin: 25, ROE: 30 } },
+                '10': { growth: { Revenue: 14, NetIncome: 16, EPS: 18, FCF: 15 }, profitability: { GrossMargin: 68, OperatingMargin: 35, NetMargin: 30, ROE: 38 } },
+                '5': { growth: { Revenue: 18, NetIncome: 20, EPS: 22, FCF: 19 }, profitability: { GrossMargin: 70, OperatingMargin: 40, NetMargin: 35, ROE: 45 } }
+            },
+            industry: {
+                company: { Revenue: 15, NetIncome: 20, GrossMargin: 68, NetMargin: 30 },
+                industry: { Revenue: 10, NetIncome: 12, GrossMargin: 35, NetMargin: 10 } // Same tech industry average as AAPL for comparison
+            },
+            crises: [
+                { title: 'Dot-Com Bust (2000-02)', description: 'Established software dominance provided stability despite broad tech downturn, demonstrating robust core business.', stockPerf: '+10%', snpPerf: '-38%', stockColor: 'text-green-600', snpColor: 'text-red-600' },
+                { title: 'Financial Crisis (2008-09)', description: 'Diversified software and enterprise solutions offered a defensive posture, enabling faster recovery.', stockPerf: '-30%', snpPerf: '-50%', stockColor: 'text-red-600', snpColor: 'text-red-600' },
+                { title: 'COVID-19 Pandemic (2020)', description: 'Cloud computing (Azure) and remote work tools saw accelerated adoption, fueling strong performance.', stockPerf: '+40%', snpPerf: '+16%', stockColor: 'text-green-600', snpColor: 'text-green-600' }
+            ],
+            internalFactors: {
+                leadershipDNA: 'A history of strong technical vision and a renewed focus on cloud computing and strategic acquisitions have reshaped Microsoft into a growth powerhouse.',
+                foresightExecution: 'Successful pivots into cloud services and subscription models demonstrate management’s exceptional foresight and execution capability, consistently driving new revenue streams.',
+                proactiveRisk: 'Microsoft has effectively managed antitrust scrutiny and cybersecurity risks, investing heavily in compliance and security measures to maintain trust and market position.',
+                regulatoryNavigation: 'Proactive engagement with global regulators and a focus on responsible AI development showcase Microsoft’s ability to navigate complex policy environments for long-term growth.'
+            }
+        },
+        'GE': {
+            name: 'General Electric Co.',
+            longTerm: {
+                years: Array.from({ length: 21 }, (_, i) => 2004 + i),
+                companyPrice: [30, 32, 35, 30, 20, 15, 18, 22, 25, 20, 28, 30, 25, 20, 15, 10, 8, 12, 15, 18, 20],
+                marketPrice: [10, 11, 13, 16, 10, 15, 18, 22, 28, 35, 45, 50, 55, 65, 75, 90, 85, 110, 120, 130, 150],
+                volume: [150, 160, 170, 180, 200, 220, 200, 190, 180, 200, 210, 220, 200, 180, 160, 150, 140, 160, 170, 180, 190],
+            },
+            financials: {
+                '20': { growth: { Revenue: 2, NetIncome: -5, EPS: -8, FCF: 1 }, profitability: { GrossMargin: 25, OperatingMargin: 5, NetMargin: 2, ROE: 5 } },
